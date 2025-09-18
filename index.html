@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>🎭 The Mafia Shuffle 🎭</title>
-<link rel="icon" type="image/x-icon" href="MafiaShuffleIcon_Round.png">
 <!-- Google Fonts -->
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Rubik+Mono+One&family=Special+Elite&display=swap" rel="stylesheet">
 <style>
@@ -21,7 +20,7 @@ body {
 }
 .container {
   width: 95%;
-  max-width: 650px; /* increased from 500px */
+  max-width: 650px;
   text-align: center;
   padding: 2rem;
   border-radius: 24px;
@@ -31,7 +30,6 @@ body {
   position: relative;
 }
 
-/* Optional: make smaller screens still look good */
 @media (max-width: 700px) {
   .container {
     width: 90%;
@@ -160,6 +158,26 @@ footer {
   pointer-events: none;
   font-family: "Special Elite", cursive;
 }
+
+/* Tap instruction for mobile */
+.tap-instruction {
+  position: fixed;
+  bottom: 50px;
+  width: 100%;
+  text-align: center;
+  font-size: 1.2rem;
+  color: #fff;
+  font-family: "Special Elite", cursive;
+  opacity: 0.8;
+  pointer-events: none;
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .tap-instruction {
+    display: block;
+  }
+}
 </style>
 </head>
 <body>
@@ -168,14 +186,14 @@ footer {
   <h1>🎭 The Mafia Shuffle 🎭</h1>
   <div id="setup">
     <label>Number of players:
-      <input type="number" id="numPlayers" min="3">
+      <input type="number" id="numPlayers" min="3" value="5">
     </label>
     <div id="roleInputs" class="reveal">
       <label>Number of civilians:
-        <input type="number" id="numCiv" min="0">
+        <input type="number" id="numCiv" min="0" value="3">
       </label>
       <label>Number of mafia:
-        <input type="number" id="numMafia" min="0">
+        <input type="number" id="numMafia" min="0" value="1">
       </label>
       <label>Add doctors?
         <input type="checkbox" id="hasDoctor">
@@ -183,7 +201,7 @@ footer {
     </div>
     <div id="doctorInput" class="reveal">
       <label>Number of doctors:
-        <input type="number" id="numDoc" min="0">
+        <input type="number" id="numDoc" min="0" value="1">
       </label>
     </div>
     <button onclick="generateSlides()">Generate Roles</button>
@@ -192,6 +210,7 @@ footer {
 
 <div id="slideshow">
   <div id="slides"></div>
+  <div class="tap-instruction">Tap anywhere to continue</div>
   <button id="restartBtn" style="display:none;" onclick="restart()">Restart</button>
 </div>
 
@@ -209,29 +228,43 @@ const hasDoctorCheckbox = document.getElementById("hasDoctor");
 const doctorInput = document.getElementById("doctorInput");
 const slideshow = document.getElementById("slideshow");
 
+// Initialize the UI
+function initUI() {
+  // Show role inputs since we have a default value
+  if (parseInt(numPlayersInput.value) >= 3) {
+    roleInputs.classList.add("show");
+  }
+  
+  // Set current year in footer
+  document.getElementById("year").textContent = new Date().getFullYear();
+}
+
 // Reset roles on focus or input
 function resetRoles() {
-    // Hide role inputs and doctor input
-    roleInputs.classList.remove("show");
-    doctorInput.classList.remove("show");
-    hasDoctorCheckbox.checked = false;
+  // Hide role inputs and doctor input
+  roleInputs.classList.remove("show");
+  doctorInput.classList.remove("show");
+  hasDoctorCheckbox.checked = false;
 
-    // Clear all input values
-    numCivInput.value = '';
-    numMafiaInput.value = '';
-    numDocInput.value = '';
+  // Clear all input values
+  numCivInput.value = '';
+  numMafiaInput.value = '';
+  numDocInput.value = '';
 }
+
 numPlayersInput.addEventListener("focus", resetRoles);
 numPlayersInput.addEventListener("input", () => {
-    resetRoles();
-    // Show role inputs only if number of players >= 3
-    if(numPlayersInput.value >= 3){
-        roleInputs.classList.add("show");
-    }
+  resetRoles();
+  // Show role inputs only if number of players >= 3
+  if(numPlayersInput.value >= 3){
+    roleInputs.classList.add("show");
+  }
 });
 
 // Show/hide doctor input
-hasDoctorCheckbox.addEventListener("change", ()=>{doctorInput.classList.toggle("show", hasDoctorCheckbox.checked);});
+hasDoctorCheckbox.addEventListener("change", () => {
+  doctorInput.classList.toggle("show", hasDoctorCheckbox.checked);
+});
 
 // Input validation: prevent excessive numbers
 function validateInputs(){
@@ -246,116 +279,104 @@ function validateInputs(){
     if(this.id==="numDoc") this.value = Math.max(0,total - civ - mafia);
   }
 }
+
 numCivInput.addEventListener("input", validateInputs);
 numMafiaInput.addEventListener("input", validateInputs);
 numDocInput.addEventListener("input", validateInputs);
 
 let currentSlide=0, slides=[];
-let touchStartTime = 0;
-let touchStartX = 0;
-let touchStartY = 0;
+let lastTapTime = 0;
+const tapDelay = 300; // Minimum time between taps in milliseconds
 
-// Slideshow tap events
-function attachSlideEvents(){
-  slideshow.addEventListener("click", handleTap);
-  slideshow.addEventListener("touchstart", handleTouchStart, {passive: true});
-  slideshow.addEventListener("touchend", handleTouchEnd, {passive: true});
-}
-function detachSlideEvents(){
-  slideshow.removeEventListener("click", handleTap);
-  slideshow.removeEventListener("touchstart", handleTouchStart);
-  slideshow.removeEventListener("touchend", handleTouchEnd);
-}
-
-function handleTouchStart(e) {
-  touchStartTime = Date.now();
-  touchStartX = e.touches[0].clientX;
-  touchStartY = e.touches[0].clientY;
-}
-
-function handleTouchEnd(e) {
-  const touchEndX = e.changedTouches[0].clientX;
-  const touchEndY = e.changedTouches[0].clientY;
-  
-  // Calculate distance and time
-  const deltaX = Math.abs(touchEndX - touchStartX);
-  const deltaY = Math.abs(touchEndY - touchStartY);
-  const deltaTime = Date.now() - touchStartTime;
-  
-  // If it's a tap (not a swipe) and within a short time
-  if (deltaX < 10 && deltaY < 10 && deltaTime < 300) {
+// Unified event handler for both mouse and touch
+function handleInteraction(e) {
+  // Prevent double-taps on touch devices
+  const currentTime = new Date().getTime();
+  if (currentTime - lastTapTime < tapDelay) {
     e.preventDefault();
-    handleTap(e);
+    return;
   }
+  lastTapTime = currentTime;
+  
+  if(e.target.id !== "restartBtn") nextSlide();
+}
+
+// Slideshow events
+function attachSlideEvents(){
+  // Use pointer events for better cross-device compatibility
+  slideshow.addEventListener('pointerdown', handleInteraction);
+}
+
+function detachSlideEvents(){
+  slideshow.removeEventListener('pointerdown', handleInteraction);
 }
 
 function generateSlides(){
   const numPlayers = parseInt(numPlayersInput.value);
   const numCiv = parseInt(numCivInput.value);
   const numMafia = parseInt(numMafiaInput.value);
-  const numDoc = hasDoctorCheckbox.checked ? parseInt(numDocInput.value)||0 :0;
+  const numDoc = hasDoctorCheckbox.checked ? parseInt(numDocInput.value)||0 : 0;
 
   if(numCiv + numMafia + numDoc !== numPlayers){
     alert("Total roles must equal number of players!");
     return;
   }
 
-  let roles=[]; roles.push(...Array(numCiv).fill("Civilian"));
+  let roles = []; 
+  roles.push(...Array(numCiv).fill("Civilian"));
   roles.push(...Array(numMafia).fill("Mafia"));
   roles.push(...Array(numDoc).fill("Doctor"));
-  roles.sort(()=>Math.random()-0.5);
+  roles.sort(() => Math.random() - 0.5);
 
-  slides=[]; roles.forEach((role,i)=>{
-    let emoji = role==="Mafia"?"🕵️‍♂️":role==="Civilian"?"👨‍🌾":"🩺";
-    slides.push({text:`${emoji} Player ${i+1}: ${role}`,role});
-    slides.push({text:"👉 Tap to continue...",role:"neutral"});
+  slides = []; 
+  roles.forEach((role, i) => {
+    let emoji = role === "Mafia" ? "🕵️‍♂️" : role === "Civilian" ? "👨‍🌾" : "🩺";
+    slides.push({text: `${emoji} Player ${i+1}: ${role}`, role});
+    slides.push({text: "👉 Tap to continue...", role: "neutral"});
   });
-  slides.push({text:"🎉 Good luck! 🎉",role:"neutral"});
+  slides.push({text: "🎉 Good luck! 🎉", role: "neutral"});
 
-  document.getElementById("setupContainer").style.display="none";
-  slideshow.style.display="flex";
+  document.getElementById("setupContainer").style.display = "none";
+  slideshow.style.display = "flex";
   renderSlides();
   attachSlideEvents();
 }
 
 function renderSlides(){
   const container = document.getElementById("slides"); 
-  container.innerHTML="";
-  slides.forEach((slide,i)=>{
+  container.innerHTML = "";
+  slides.forEach((slide, i) => {
     const div = document.createElement("div");
-    div.classList.add("slide",slide.role.toLowerCase());
-    if(i===0) div.classList.add("active");
+    div.classList.add("slide", slide.role.toLowerCase());
+    if(i === 0) div.classList.add("active");
     div.textContent = slide.text;
     container.appendChild(div);
   });
-  currentSlide=0;
+  currentSlide = 0;
 }
 
 function nextSlide(){
   const allSlides = document.querySelectorAll(".slide");
-  if(currentSlide<allSlides.length-1){
+  if(currentSlide < allSlides.length - 1){
     allSlides[currentSlide].classList.remove("active");
     currentSlide++;
     allSlides[currentSlide].classList.add("active");
   } else {
-    document.getElementById("restartBtn").style.display="block";
+    document.getElementById("restartBtn").style.display = "block";
     detachSlideEvents();
   }
 }
 
 function restart(){
-  currentSlide=0; slides=[];
-  document.getElementById("setupContainer").style.display="block";
-  slideshow.style.display="none";
-  document.getElementById("restartBtn").style.display="none";
+  currentSlide = 0; 
+  slides = [];
+  document.getElementById("setupContainer").style.display = "block";
+  slideshow.style.display = "none";
+  document.getElementById("restartBtn").style.display = "none";
 }
 
-function handleTap(e){
-  if(e.target.id!=="restartBtn") nextSlide();
-}
-
-// Set dynamic year
-document.getElementById("year").textContent = new Date().getFullYear();
+// Initialize the UI when page loads
+initUI();
 </script>
 
 </body>
