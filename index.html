@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎭 The Mafia Shuffle 🎭</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Rubik+Mono+One&family=Special+Elite&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin:0; padding:0; }
+body {
+  font-family: "Cinzel", serif;
+  background: radial-gradient(circle at top, #1a1a1a, #000);
+  color: #fff;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  position: relative;
+}
+.container {
+  width: 95%;
+  max-width: 650px; /* increased from 500px */
+  text-align: center;
+  padding: 2rem;
+  border-radius: 24px;
+  background: rgba(20,20,20,0.95);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+  z-index:1;
+  position: relative;
+}
+
+/* Optional: make smaller screens still look good */
+@media (max-width: 700px) {
+  .container {
+    width: 90%;
+    max-width: 95%;
+  }
+}
+h1 {
+  font-family: "Special Elite", cursive;
+  font-size: 2.5rem;
+  color: #ff4444;
+  margin-bottom: 2rem;
+}
+label {
+  display: block;
+  margin: 1rem 0 0.5rem;
+  font-weight: 600;
+  text-align: left;
+  font-size: 1rem;
+}
+input[type="number"] {
+  width: 100%;
+  padding: 0.9rem;
+  margin-bottom: 1rem;
+  border-radius: 12px;
+  border: none;
+  font-size: 1.1rem;
+  text-align: center;
+  background: #222;
+  color: #fff;
+  box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
+  outline: none;
+  font-family: "Cinzel", serif;
+}
+input[type="checkbox"] {
+  transform: scale(1.4);
+  margin-left: 0.5rem;
+  cursor: pointer;
+}
+button {
+  margin-top: 1.5rem;
+  padding: 1rem 1.8rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 14px;
+  background: #ff4444;
+  color: #fff;
+  cursor: pointer;
+  transition: transform 0.2s, background 0.3s;
+  font-family: "Special Elite", cursive;
+}
+button:hover { background:#ff2222; transform: scale(1.05); }
+.reveal {
+  max-height: 0;
+  overflow: hidden;
+  opacity:0;
+  transition: max-height 0.5s ease, opacity 0.5s ease;
+}
+.reveal.show {
+  max-height: 400px;
+  opacity:1;
+}
+
+/* Fullscreen slideshow */
+#slideshow {
+  display: none;
+  position: fixed;
+  top:0; left:0; width:100vw; height:100vh;
+  background:#000;
+  z-index:999;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding:1rem;
+  cursor: pointer;
+}
+#slides {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.slide {
+  display: none;
+  font-size:2.4rem;
+  font-family:"Rubik Mono One", sans-serif;
+  text-align:center;
+  padding:2rem 2.5rem;
+  border-radius:20px;
+  max-width: 90%;
+  width: auto;
+  word-wrap:break-word;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.6);
+  animation: fadeIn 0.6s ease;
+  user-select: none;
+}
+.slide.active { display:flex; justify-content:center; align-items:center; }
+.civilian{background:#1e3a8a;color:#a5d8ff;}
+.mafia{background:#7f1d1d;color:#ffcccc;}
+.doctor{background:#065f46;color:#a7f3d0;}
+.neutral{background:#333;color:#eee;}
+#restartBtn{
+  margin-top:2rem;
+  font-size:1.2rem;
+  padding:1rem 2rem;
+  border:none;
+  border-radius:14px;
+  background:#22c55e;
+  cursor:pointer;
+  font-family: "Special Elite", cursive;
+}
+#restartBtn:hover{background:#16a34a;}
+@keyframes fadeIn{
+  from{opacity:0; transform:translateY(25px) scale(0.95);}
+  to{opacity:1; transform:translateY(0) scale(1);}
+}
+
+/* Footer */
+footer {
+  position: fixed;
+  bottom: 5px;
+  width: 100%;
+  text-align: center;
+  font-size: 0.9rem;
+  color: #aaa;
+  pointer-events: none;
+  font-family: "Special Elite", cursive;
+}
+</style>
+</head>
+<body>
+
+<div class="container" id="setupContainer">
+  <h1>🎭 The Mafia Shuffle 🎭</h1>
+  <div id="setup">
+    <label>Number of players:
+      <input type="number" id="numPlayers" min="3">
+    </label>
+    <div id="roleInputs" class="reveal">
+      <label>Number of civilians:
+        <input type="number" id="numCiv" min="0">
+      </label>
+      <label>Number of mafia:
+        <input type="number" id="numMafia" min="0">
+      </label>
+      <label>Add doctors?
+        <input type="checkbox" id="hasDoctor">
+      </label>
+    </div>
+    <div id="doctorInput" class="reveal">
+      <label>Number of doctors:
+        <input type="number" id="numDoc" min="0">
+      </label>
+    </div>
+    <button onclick="generateSlides()">Generate Roles</button>
+  </div>
+</div>
+
+<div id="slideshow">
+  <div id="slides"></div>
+  <button id="restartBtn" style="display:none;" onclick="restart()">Restart</button>
+</div>
+
+<footer>
+  &copy; <span id="year"></span> Mafia Shuffle by @atif.a6z
+</footer>
+
+<script>
+const numPlayersInput = document.getElementById("numPlayers");
+const numCivInput = document.getElementById("numCiv");
+const numMafiaInput = document.getElementById("numMafia");
+const numDocInput = document.getElementById("numDoc");
+const roleInputs = document.getElementById("roleInputs");
+const hasDoctorCheckbox = document.getElementById("hasDoctor");
+const doctorInput = document.getElementById("doctorInput");
+const slideshow = document.getElementById("slideshow");
+
+// Reset roles on focus or input
+function resetRoles() {
+    // Hide role inputs and doctor input
+    roleInputs.classList.remove("show");
+    doctorInput.classList.remove("show");
+    hasDoctorCheckbox.checked = false;
+
+    // Clear all input values
+    numCivInput.value = '';
+    numMafiaInput.value = '';
+    numDocInput.value = '';
+}
+numPlayersInput.addEventListener("focus", resetRoles);
+numPlayersInput.addEventListener("input", () => {
+    resetRoles();
+    // Show role inputs only if number of players >= 3
+    if(numPlayersInput.value >= 3){
+        roleInputs.classList.add("show");
+    }
+});
+
+// Show/hide doctor input
+hasDoctorCheckbox.addEventListener("change", ()=>{doctorInput.classList.toggle("show", hasDoctorCheckbox.checked);});
+
+// Input validation: prevent excessive numbers
+function validateInputs(){
+  const total = parseInt(numPlayersInput.value)||0;
+  const civ = parseInt(numCivInput.value)||0;
+  const mafia = parseInt(numMafiaInput.value)||0;
+  const doc = parseInt(numDocInput.value)||0;
+  
+  if(civ + mafia + doc > total){
+    if(this.id==="numCiv") this.value = Math.max(0,total - mafia - doc);
+    if(this.id==="numMafia") this.value = Math.max(0,total - civ - doc);
+    if(this.id==="numDoc") this.value = Math.max(0,total - civ - mafia);
+  }
+}
+numCivInput.addEventListener("input", validateInputs);
+numMafiaInput.addEventListener("input", validateInputs);
+numDocInput.addEventListener("input", validateInputs);
+
+let currentSlide=0, slides=[];
+
+// Slideshow tap events
+function attachSlideEvents(){
+  slideshow.addEventListener("click", handleTap);
+  slideshow.addEventListener("touchstart", handleTap);
+}
+function detachSlideEvents(){
+  slideshow.removeEventListener("click", handleTap);
+  slideshow.removeEventListener("touchstart", handleTap);
+}
+
+function generateSlides(){
+  const numPlayers = parseInt(numPlayersInput.value);
+  const numCiv = parseInt(numCivInput.value);
+  const numMafia = parseInt(numMafiaInput.value);
+  const numDoc = hasDoctorCheckbox.checked ? parseInt(numDocInput.value)||0 :0;
+
+  if(numCiv + numMafia + numDoc !== numPlayers){
+    alert("Total roles must equal number of players!");
+    return;
+  }
+
+  let roles=[]; roles.push(...Array(numCiv).fill("Civilian"));
+  roles.push(...Array(numMafia).fill("Mafia"));
+  roles.push(...Array(numDoc).fill("Doctor"));
+  roles.sort(()=>Math.random()-0.5);
+
+  slides=[]; roles.forEach((role,i)=>{
+    let emoji = role==="Mafia"?"🕵️‍♂️":role==="Civilian"?"👨‍🌾":"🩺";
+    slides.push({text:`${emoji} Player ${i+1}: ${role}`,role});
+    slides.push({text:"👉 Tap to continue...",role:"neutral"});
+  });
+  slides.push({text:"🎉 Good luck! 🎉",role:"neutral"});
+
+  document.getElementById("setupContainer").style.display="none";
+  slideshow.style.display="flex";
+  renderSlides();
+  attachSlideEvents();
+}
+
+function renderSlides(){
+  const container = document.getElementById("slides"); 
+  container.innerHTML="";
+  slides.forEach((slide,i)=>{
+    const div = document.createElement("div");
+    div.classList.add("slide",slide.role.toLowerCase());
+    if(i===0) div.classList.add("active");
+    div.textContent = slide.text;
+    container.appendChild(div);
+  });
+  currentSlide=0;
+}
+
+function nextSlide(){
+  const allSlides = document.querySelectorAll(".slide");
+  if(currentSlide<allSlides.length-1){
+    allSlides[currentSlide].classList.remove("active");
+    currentSlide++;
+    allSlides[currentSlide].classList.add("active");
+  } else {
+    document.getElementById("restartBtn").style.display="block";
+    detachSlideEvents();
+  }
+}
+
+function restart(){
+  currentSlide=0; slides=[];
+  document.getElementById("setupContainer").style.display="block";
+  slideshow.style.display="none";
+  document.getElementById("restartBtn").style.display="none";
+}
+
+function handleTap(e){
+  if(e.target.id!=="restartBtn") nextSlide();
+}
+
+// Set dynamic year
+document.getElementById("year").textContent = new Date().getFullYear();
+</script>
+
+</body>
+</html>
