@@ -82,6 +82,11 @@ button {
   font-family: "Special Elite", cursive;
 }
 button:hover { background:#ff2222; transform: scale(1.05); }
+button:disabled {
+  background: #555;
+  cursor: not-allowed;
+  transform: none;
+}
 .reveal {
   max-height: 0;
   overflow: hidden;
@@ -125,12 +130,57 @@ button:hover { background:#ff2222; transform: scale(1.05); }
   box-shadow: 0 6px 20px rgba(0,0,0,0.6);
   animation: fadeIn 0.6s ease;
   user-select: none;
+  position: relative;
+  z-index: 1;
+}
+.slide::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  right: -10px;
+  bottom: -10px;
+  border-radius: 30px;
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 0.5s ease;
 }
 .slide.active { display:flex; justify-content:center; align-items:center; }
-.civilian{background:#1e3a8a;color:#a5d8ff;}
-.mafia{background:#7f1d1d;color:#ffcccc;}
-.doctor{background:#065f46;color:#a7f3d0;}
-.neutral{background:#333;color:#eee;}
+.slide.active::before {
+  opacity: 1;
+}
+.civilian{
+  background:#1e3a8a;
+  color:#a5d8ff;
+}
+.civilian::before {
+  background: linear-gradient(45deg, #1e40af, #3b82f6, #60a5fa, #93c5fd);
+  filter: blur(15px);
+}
+.mafia{
+  background:#7f1d1d;
+  color:#ffcccc;
+}
+.mafia::before {
+  background: linear-gradient(45deg, #991b1b, #dc2626, #ef4444, #fca5a5);
+  filter: blur(15px);
+}
+.doctor{
+  background:#065f46;
+  color:#a7f3d0;
+}
+.doctor::before {
+  background: linear-gradient(45deg, #047857, #059669, #10b981, #34d399);
+  filter: blur(15px);
+}
+.neutral{
+  background:#333;
+  color:#eee;
+}
+.neutral::before {
+  background: linear-gradient(45deg, #4b5563, #6b7280, #9ca3af, #d1d5db);
+  filter: blur(15px);
+}
 #restartBtn{
   margin-top:2rem;
   font-size:1.2rem;
@@ -145,6 +195,14 @@ button:hover { background:#ff2222; transform: scale(1.05); }
 @keyframes fadeIn{
   from{opacity:0; transform:translateY(25px) scale(0.95);}
   to{opacity:1; transform:translateY(0) scale(1);}
+}
+@keyframes glowPulse {
+  0% { opacity: 0.7; }
+  50% { opacity: 0.9; }
+  100% { opacity: 0.7; }
+}
+.slide.active::before {
+  animation: glowPulse 3s infinite ease-in-out;
 }
 
 /* Footer */
@@ -178,6 +236,15 @@ footer {
     display: block;
   }
 }
+
+.error-message {
+  color: #ff6b6b;
+  margin-top: -0.5rem;
+  margin-bottom: 1rem;
+  text-align: center;
+  font-size: 0.9rem;
+  display: none;
+}
 </style>
 </head>
 <body>
@@ -186,25 +253,31 @@ footer {
   <h1>🎭 The Mafia Shuffle 🎭</h1>
   <div id="setup">
     <label>Number of players:
-      <input type="number" id="numPlayers" min="3" value="5">
+      <input type="number" id="numPlayers" min="3" placeholder="Enter number of players">
     </label>
+    <div id="playerError" class="error-message">Please enter at least 3 players</div>
+    
     <div id="roleInputs" class="reveal">
       <label>Number of civilians:
-        <input type="number" id="numCiv" min="0" value="3">
+        <input type="number" id="numCiv" min="0" placeholder="0">
       </label>
       <label>Number of mafia:
-        <input type="number" id="numMafia" min="0" value="1">
+        <input type="number" id="numMafia" min="0" placeholder="0">
       </label>
       <label>Add doctors?
         <input type="checkbox" id="hasDoctor">
       </label>
     </div>
+    
     <div id="doctorInput" class="reveal">
       <label>Number of doctors:
-        <input type="number" id="numDoc" min="0" value="1">
+        <input type="number" id="numDoc" min="0" placeholder="0">
       </label>
     </div>
-    <button onclick="generateSlides()">Generate Roles</button>
+    
+    <div id="roleError" class="error-message">Total roles must equal number of players</div>
+    
+    <button id="generateBtn" onclick="generateSlides()" disabled>Generate Roles</button>
   </div>
 </div>
 
@@ -227,43 +300,80 @@ const roleInputs = document.getElementById("roleInputs");
 const hasDoctorCheckbox = document.getElementById("hasDoctor");
 const doctorInput = document.getElementById("doctorInput");
 const slideshow = document.getElementById("slideshow");
+const generateBtn = document.getElementById("generateBtn");
+const playerError = document.getElementById("playerError");
+const roleError = document.getElementById("roleError");
 
 // Initialize the UI
 function initUI() {
-  // Show role inputs since we have a default value
-  if (parseInt(numPlayersInput.value) >= 3) {
-    roleInputs.classList.add("show");
-  }
-  
   // Set current year in footer
   document.getElementById("year").textContent = new Date().getFullYear();
-}
-
-// Reset roles on focus or input
-function resetRoles() {
-  // Hide role inputs and doctor input
+  
+  // Initially hide role inputs
   roleInputs.classList.remove("show");
   doctorInput.classList.remove("show");
   hasDoctorCheckbox.checked = false;
-
+  
   // Clear all input values
+  numPlayersInput.value = '';
   numCivInput.value = '';
   numMafiaInput.value = '';
   numDocInput.value = '';
 }
 
-numPlayersInput.addEventListener("focus", resetRoles);
-numPlayersInput.addEventListener("input", () => {
-  resetRoles();
-  // Show role inputs only if number of players >= 3
-  if(numPlayersInput.value >= 3){
+// Validate player count and show/hide role inputs
+function validatePlayerCount() {
+  const playerCount = parseInt(numPlayersInput.value) || 0;
+  
+  if (playerCount >= 3) {
     roleInputs.classList.add("show");
+    playerError.style.display = 'none';
+    validateRoleCount();
+  } else {
+    roleInputs.classList.remove("show");
+    doctorInput.classList.remove("show");
+    hasDoctorCheckbox.checked = false;
+    generateBtn.disabled = true;
+    
+    if (playerCount > 0) {
+      playerError.style.display = 'block';
+    } else {
+      playerError.style.display = 'none';
+    }
   }
-});
+}
+
+// Validate role counts
+function validateRoleCount() {
+  const playerCount = parseInt(numPlayersInput.value) || 0;
+  const civCount = parseInt(numCivInput.value) || 0;
+  const mafiaCount = parseInt(numMafiaInput.value) || 0;
+  const docCount = hasDoctorCheckbox.checked ? (parseInt(numDocInput.value) || 0) : 0;
+  const totalRoles = civCount + mafiaCount + docCount;
+  
+  if (totalRoles === playerCount && playerCount >= 3) {
+    generateBtn.disabled = false;
+    roleError.style.display = 'none';
+  } else {
+    generateBtn.disabled = true;
+    if (playerCount >= 3 && totalRoles > 0) {
+      roleError.style.display = 'block';
+    } else {
+      roleError.style.display = 'none';
+    }
+  }
+}
+
+// Event listeners
+numPlayersInput.addEventListener("input", validatePlayerCount);
+numCivInput.addEventListener("input", validateRoleCount);
+numMafiaInput.addEventListener("input", validateRoleCount);
+numDocInput.addEventListener("input", validateRoleCount);
 
 // Show/hide doctor input
 hasDoctorCheckbox.addEventListener("change", () => {
   doctorInput.classList.toggle("show", hasDoctorCheckbox.checked);
+  validateRoleCount();
 });
 
 // Input validation: prevent excessive numbers
@@ -278,6 +388,7 @@ function validateInputs(){
     if(this.id==="numMafia") this.value = Math.max(0,total - civ - doc);
     if(this.id==="numDoc") this.value = Math.max(0,total - civ - mafia);
   }
+  validateRoleCount();
 }
 
 numCivInput.addEventListener("input", validateInputs);
@@ -373,6 +484,9 @@ function restart(){
   document.getElementById("setupContainer").style.display = "block";
   slideshow.style.display = "none";
   document.getElementById("restartBtn").style.display = "none";
+  
+  // Reset form
+  initUI();
 }
 
 // Initialize the UI when page loads
