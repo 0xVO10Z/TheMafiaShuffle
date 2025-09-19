@@ -173,6 +173,14 @@ button:disabled {
   background: linear-gradient(45deg, #047857, #059669, #10b981, #34d399);
   filter: blur(15px);
 }
+.jester{
+  background:#581c87;
+  color:#e9d5ff;
+}
+.jester::before {
+  background: linear-gradient(45deg, #6b21a8, #9333ea, #a855f7, #c084fc);
+  filter: blur(15px);
+}
 .neutral{
   background:#333;
   color:#eee;
@@ -267,11 +275,20 @@ footer {
       <label>Add doctors?
         <input type="checkbox" id="hasDoctor">
       </label>
+      <label>Add jesters?
+        <input type="checkbox" id="hasJester">
+      </label>
     </div>
     
     <div id="doctorInput" class="reveal">
       <label>Number of doctors:
         <input type="number" id="numDoc" min="0" placeholder="0">
+      </label>
+    </div>
+    
+    <div id="jesterInput" class="reveal">
+      <label>Number of jesters:
+        <input type="number" id="numJester" min="0" placeholder="0">
       </label>
     </div>
     
@@ -296,9 +313,12 @@ const numPlayersInput = document.getElementById("numPlayers");
 const numCivInput = document.getElementById("numCiv");
 const numMafiaInput = document.getElementById("numMafia");
 const numDocInput = document.getElementById("numDoc");
+const numJesterInput = document.getElementById("numJester");
 const roleInputs = document.getElementById("roleInputs");
 const hasDoctorCheckbox = document.getElementById("hasDoctor");
+const hasJesterCheckbox = document.getElementById("hasJester");
 const doctorInput = document.getElementById("doctorInput");
+const jesterInput = document.getElementById("jesterInput");
 const slideshow = document.getElementById("slideshow");
 const generateBtn = document.getElementById("generateBtn");
 const playerError = document.getElementById("playerError");
@@ -312,13 +332,16 @@ function initUI() {
   // Initially hide role inputs
   roleInputs.classList.remove("show");
   doctorInput.classList.remove("show");
+  jesterInput.classList.remove("show");
   hasDoctorCheckbox.checked = false;
+  hasJesterCheckbox.checked = false;
   
   // Clear all input values
   numPlayersInput.value = '';
   numCivInput.value = '';
   numMafiaInput.value = '';
   numDocInput.value = '';
+  numJesterInput.value = '';
 }
 
 // Validate player count and show/hide role inputs
@@ -332,7 +355,9 @@ function validatePlayerCount() {
   } else {
     roleInputs.classList.remove("show");
     doctorInput.classList.remove("show");
+    jesterInput.classList.remove("show");
     hasDoctorCheckbox.checked = false;
+    hasJesterCheckbox.checked = false;
     generateBtn.disabled = true;
     
     if (playerCount > 0) {
@@ -349,7 +374,8 @@ function validateRoleCount() {
   const civCount = parseInt(numCivInput.value) || 0;
   const mafiaCount = parseInt(numMafiaInput.value) || 0;
   const docCount = hasDoctorCheckbox.checked ? (parseInt(numDocInput.value) || 0) : 0;
-  const totalRoles = civCount + mafiaCount + docCount;
+  const jesterCount = hasJesterCheckbox.checked ? (parseInt(numJesterInput.value) || 0) : 0;
+  const totalRoles = civCount + mafiaCount + docCount + jesterCount;
   
   if (totalRoles === playerCount && playerCount >= 3) {
     generateBtn.disabled = false;
@@ -369,10 +395,17 @@ numPlayersInput.addEventListener("input", validatePlayerCount);
 numCivInput.addEventListener("input", validateRoleCount);
 numMafiaInput.addEventListener("input", validateRoleCount);
 numDocInput.addEventListener("input", validateRoleCount);
+numJesterInput.addEventListener("input", validateRoleCount);
 
 // Show/hide doctor input
 hasDoctorCheckbox.addEventListener("change", () => {
   doctorInput.classList.toggle("show", hasDoctorCheckbox.checked);
+  validateRoleCount();
+});
+
+// Show/hide jester input
+hasJesterCheckbox.addEventListener("change", () => {
+  jesterInput.classList.toggle("show", hasJesterCheckbox.checked);
   validateRoleCount();
 });
 
@@ -382,11 +415,13 @@ function validateInputs(){
   const civ = parseInt(numCivInput.value)||0;
   const mafia = parseInt(numMafiaInput.value)||0;
   const doc = parseInt(numDocInput.value)||0;
+  const jester = parseInt(numJesterInput.value)||0;
   
-  if(civ + mafia + doc > total){
-    if(this.id==="numCiv") this.value = Math.max(0,total - mafia - doc);
-    if(this.id==="numMafia") this.value = Math.max(0,total - civ - doc);
-    if(this.id==="numDoc") this.value = Math.max(0,total - civ - mafia);
+  if(civ + mafia + doc + jester > total){
+    if(this.id==="numCiv") this.value = Math.max(0,total - mafia - doc - jester);
+    if(this.id==="numMafia") this.value = Math.max(0,total - civ - doc - jester);
+    if(this.id==="numDoc") this.value = Math.max(0,total - civ - mafia - jester);
+    if(this.id==="numJester") this.value = Math.max(0,total - civ - mafia - doc);
   }
   validateRoleCount();
 }
@@ -394,6 +429,7 @@ function validateInputs(){
 numCivInput.addEventListener("input", validateInputs);
 numMafiaInput.addEventListener("input", validateInputs);
 numDocInput.addEventListener("input", validateInputs);
+numJesterInput.addEventListener("input", validateInputs);
 
 let currentSlide=0, slides=[];
 let lastTapTime = 0;
@@ -427,8 +463,9 @@ function generateSlides(){
   const numCiv = parseInt(numCivInput.value);
   const numMafia = parseInt(numMafiaInput.value);
   const numDoc = hasDoctorCheckbox.checked ? parseInt(numDocInput.value)||0 : 0;
+  const numJester = hasJesterCheckbox.checked ? parseInt(numJesterInput.value)||0 : 0;
 
-  if(numCiv + numMafia + numDoc !== numPlayers){
+  if(numCiv + numMafia + numDoc + numJester !== numPlayers){
     alert("Total roles must equal number of players!");
     return;
   }
@@ -437,11 +474,15 @@ function generateSlides(){
   roles.push(...Array(numCiv).fill("Civilian"));
   roles.push(...Array(numMafia).fill("Mafia"));
   roles.push(...Array(numDoc).fill("Doctor"));
+  roles.push(...Array(numJester).fill("Jester"));
   roles.sort(() => Math.random() - 0.5);
 
   slides = []; 
   roles.forEach((role, i) => {
-    let emoji = role === "Mafia" ? "🕵️‍♂️" : role === "Civilian" ? "👨‍🌾" : "🩺";
+    let emoji = role === "Mafia" ? "🕵️‍♂️" : 
+                role === "Civilian" ? "👨‍🌾" : 
+                role === "Doctor" ? "🩺" : 
+                "🃏"; // Jester emoji
     slides.push({text: `${emoji} Player ${i+1}: ${role}`, role});
     slides.push({text: "👉 Tap to continue...", role: "neutral"});
   });
